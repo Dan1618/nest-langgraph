@@ -1,0 +1,20 @@
+[
+    {
+        "id": "0",
+        "name": "Apple",
+        "ticker": "NASDAQ: AAPL",
+        "description": "they make iPhones"
+    },
+    {
+        "id": "1",
+        "name": "AstroNova, Inc.",
+        "ticker": "NASDAQ: ALOT",
+        "description": "Data visualization technologies, specialty printers, and aerospace electronics."
+    },
+    {
+        "id": "2",
+        "name": "AudioCodes Ltd.",
+        "ticker": "NASDAQ: AUDC",
+        "description": "Advanced voice networking and media processing solutions."
+    }
+]

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Save articles and ask a question</title>
+    <style>
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>LangGraph NestJS</h1>
+        <button id="startButton" class="btn-start">START</button>
+        <p id="status"></p>
+    </div>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 3rem;
+            border-radius: 1.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-start {
+            padding: 1rem 2.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        }
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(37, 99, 235, 0.4);
+            filter: brightness(1.1);
+        }
+        .btn-start:active {
+            transform: translateY(0);
+        }
+        #status {
+            margin-top: 1.5rem;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+    </style>
+
+    <script>
+        document.getElementById('startButton').addEventListener('click', async () => {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = 'Connecting...';
+            try {
+                const response = await fetch('/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    statusEl.textContent = 'Started successfully!';
+                    statusEl.style.color = '#4ade80';
+                } else {
+                    statusEl.textContent = 'Error starting.';
+                    statusEl.style.color = '#f87171';
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'Connection failed.';
+                statusEl.style.color = '#f87171';
+            }
+        });
+    </script>
+</body>
+
+
+</html>
