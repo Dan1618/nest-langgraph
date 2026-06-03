@@ -1,21 +1,28 @@
-import { MemorySaver, StateGraph } from '@langchain/langgraph';
+import { Annotation, Command, END, interrupt, MemorySaver, START, StateGraph } from '@langchain/langgraph';
 import { ChatOpenAI } from '@langchain/openai';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SummaryState } from 'interfaces/state.interface';
+import { Company, SummaryState } from 'interfaces/state.interface';
+import { z } from "zod";
 import * as fs from 'fs';
 import * as path from 'path';
 
 
+const RiskSchema = z.object({
+  riskScore: z.number().min(1).max(5).describe("The general risk profile score from 1 to 5"),
+});
+
+
+const StateAnnotation = Annotation.Root({
+  companies: Annotation<Company[]>(),
+  draft: Annotation<string | undefined>(),
+});
 
 
 @Injectable()
 export class GraphService {
   private readonly appGraph;
 
-  //### chce wyslac wiele razy do llma pytanie o kazdy z elementow osobno
-  // czyli jakas petla, promiseAll, if(!company.risk)
-  // # jak wywolac call i zrobic zapis a) w state b) w pliku
   constructor(private configService: ConfigService) {
 
     const llm = new ChatOpenAI({
@@ -23,23 +30,74 @@ export class GraphService {
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
     });
 
-    const scoreCompanies = async (state: SummaryState) => {
-      const response = await llm.invoke([
-        { role: "system", content: "Summarize these companies concisely." },
-        { role: "user", content: JSON.stringify(state.companies) },
-      ]);
-      return { draft: response.content.toString() };
+    const scoreCompanies = async (state: typeof StateAnnotation.State) => {
+      // Map your companies into an array of promises to run them in parallel
+      const updatedCompanies = await Promise.all(
+        state.companies.map(async (company) => {
+          if (!company.risk) {
+            // 2. Bind the schema to the LLM so it ONLY returns the JSON structure
+            const structuredLlm = llm.withStructuredOutput(RiskSchema);
+
+            const response = await structuredLlm.invoke([
+              {
+                role: "system",
+                content: "You are a risk assessment AI. Analyze the company and provide a risk score from 1 to 5. (where 1 is low risk)"
+              },
+              { role: "user", content: JSON.stringify(company) },
+            ]);
+
+            // response is now typed as { riskScore: number }
+            return {
+              ...company,
+              risk: response.riskScore,
+            };
+          }
+
+          return company
+
+        })
+      );
+
+      // 3. Return the updated array to the LangGraph state
+      const outputPath = path.join(process.cwd(), 'data', 'companiesWithRisk.json');
+      fs.writeFileSync(outputPath, JSON.stringify(updatedCompanies, null, 2), 'utf8');
+
+      return { companies: updatedCompanies };
     };
 
-    const workflow = new StateGraph<SummaryState>()
-      .addEdge('__start__', 'scoreCompanies')
+    const humanReview = async (state: typeof StateAnnotation.State) => {
+      const approvedCompanies: Company[] = [];
+
+      for (const company of state.companies) {
+        // Pause execution and send the company to the user for review.
+        // The return value is whatever the user sends back via Command({ resume: ... }).
+        const decision = interrupt({
+          company,
+          message: `Please approve or reject: ${company.name} (${company.ticker})`,
+        });
+
+        if (decision?.approve) {
+          approvedCompanies.push(company);
+        }
+        // If not approved, the company is simply not added (i.e. removed from state).
+      }
+
+      return { companies: approvedCompanies };
+    };
+
+    const workflow = new StateGraph(StateAnnotation)
       .addNode("scoreCompanies", scoreCompanies)
-      .addEdge("scoreCompanies", "__end__")
+      .addNode("humanReview", humanReview)
+      .addEdge(START, "scoreCompanies")
+      .addEdge("scoreCompanies", "humanReview")
+      .addEdge("humanReview", END);
 
     // https://docs.langchain.com/oss/javascript/langgraph/persistence
     const memory = new MemorySaver();
     this.appGraph = workflow.compile({ checkpointer: memory });
   }
+
+  private readonly threadConfig = { configurable: { thread_id: "1" } };
 
   async start() {
     console.log('working.');
@@ -52,12 +110,30 @@ export class GraphService {
       companies: inputData
     };
 
-    // Invoke the graph with the initial state
-    const result = await this.appGraph.invoke(initialState, {
-      configurable: { thread_id: "1" }
-    });
+    // Invoke the graph — it will pause at the first interrupt in humanReview
+    const result = await this.appGraph.invoke(initialState, this.threadConfig);
 
-    console.log('Graph execution completed.');
-    console.log('Summary Result:', result.draft);
+    console.log('Graph paused or completed.');
+    return result;
+  }
+
+  /**
+   * Get the current graph state including any pending interrupts.
+   */
+  async getState() {
+    const state = await this.appGraph.getState(this.threadConfig);
+    return state;
+  }
+
+  /**
+   * Resume the graph after an interrupt with the user's decision.
+   * @param approve - whether the user approves the current company
+   */
+  async resume(approve: boolean) {
+    const result = await this.appGraph.invoke(
+      new Command({ resume: { approve } }),
+      this.threadConfig,
+    );
+    return result;
   }
 }

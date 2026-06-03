@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>LangGraph - Company Risk Review</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #818cf8, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            border: none;
+            padding: 12px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-start:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,.4); }
+        .btn-start:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        #status {
+            margin-top: 16px;
+            font-size: 0.9rem;
+            min-height: 1.2em;
+        }
+
+        /* Review card */
+        .review-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 24px;
+            margin-top: 24px;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .review-card h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+        }
+        .review-card .ticker {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+        .review-card .description {
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        .review-card .risk-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .risk-low  { background: #064e3b; color: #6ee7b7; }
+        .risk-med  { background: #78350f; color: #fbbf24; }
+        .risk-high { background: #7f1d1d; color: #fca5a5; }
+
+        .review-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-approve, .btn-reject {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .btn-approve {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: #fff;
+        }
+        .btn-approve:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(16,185,129,.4); }
+        .btn-reject {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: #fff;
+        }
+        .btn-reject:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(239,68,68,.4); }
+        .btn-approve:disabled, .btn-reject:disabled {
+            opacity: .5; cursor: not-allowed; transform: none; box-shadow: none;
+        }
+
+        /* Results */
+        .results {
+            margin-top: 24px;
+        }
+        .results h2 {
+            font-size: 1.1rem;
+            color: #a78bfa;
+            margin-bottom: 12px;
+        }
+        .result-item {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideUp 0.3s ease;
+        }
+        .result-item .name { font-weight: 600; }
+        .result-item .ticker-sm { font-size: 0.8rem; color: #94a3b8; }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>LangGraph — Company Risk Review</h1>
+        <button id="startButton" class="btn-start">START</button>
+        <p id="status"></p>
+
+        <div id="reviewArea"></div>
+        <div id="resultsArea"></div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const reviewArea = document.getElementById('reviewArea');
+        const resultsArea = document.getElementById('resultsArea');
+        const startBtn = document.getElementById('startButton');
+
+        function riskClass(score) {
+            if (score <= 2) return 'risk-low';
+            if (score <= 3) return 'risk-med';
+            return 'risk-high';
+        }
+
+        function renderCompanyCard(company, message) {
+            const risk = company.risk != null ? company.risk : '—';
+            reviewArea.innerHTML = `
+                <div class="review-card">
+                    <h2>${company.name}</h2>
+                    <p class="ticker">${company.ticker}</p>
+                    <p class="description">${company.description}</p>
+                    <span class="risk-badge ${riskClass(company.risk)}">Risk Score: ${risk} / 5</span>
+                    <div class="review-actions">
+                        <button class="btn-approve" id="approveBtn">✓ Approve</button>
+                        <button class="btn-reject" id="rejectBtn">✗ Reject</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('approveBtn').addEventListener('click', () => handleReview(true));
+            document.getElementById('rejectBtn').addEventListener('click', () => handleReview(false));
+        }
+
+        function showInterrupt(interrupts) {
+            if (!interrupts || interrupts.length === 0) return;
+            const interrupt = interrupts[0];
+            const payload = interrupt.value;
+            if (payload && payload.company) {
+                statusEl.textContent = payload.message || 'Review this company:';
+                statusEl.style.color = '#fbbf24';
+                renderCompanyCard(payload.company, payload.message);
+            }
+        }
+
+        function showCompleted(companies) {
+            reviewArea.innerHTML = '';
+            statusEl.textContent = 'Review complete!';
+            statusEl.style.color = '#4ade80';
+            startBtn.style.display = 'none';
+
+            let html = '<div class="results"><h2>Approved Companies</h2>';
+            if (!companies || companies.length === 0) {
+                html += '<p style="color: #94a3b8;">No companies were approved.</p>';
+            } else {
+                companies.forEach(c => {
+                    html += `
+                        <div class="result-item">
+                            <div>
+                                <span class="name">${c.name}</span>
+                                <span class="ticker-sm"> — ${c.ticker}</span>
+                            </div>
+                            <span class="risk-badge ${riskClass(c.risk)}">Risk: ${c.risk}</span>
+                        </div>
+                    `;
+                });
+            }
+            html += '</div>';
+            resultsArea.innerHTML = html;
+        }
+
+        async function handleReview(approve) {
+            const approveBtn = document.getElementById('approveBtn');
+            const rejectBtn = document.getElementById('rejectBtn');
+            if (approveBtn) approveBtn.disabled = true;
+            if (rejectBtn) rejectBtn.disabled = true;
+            statusEl.textContent = 'Processing...';
+            statusEl.style.color = '#94a3b8';
+
+            try {
+                const resp = await fetch('/review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ approve }),
+                });
+                const data = await resp.json();
+
+                if (data.status === 'paused_for_review') {
+                    showInterrupt(data.interrupts);
+                } else if (data.status === 'completed') {
+                    showCompleted(data.companies);
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'Error submitting review.';
+                statusEl.style.color = '#f87171';
+            }
+        }
+
+        // Start button handler
+        startBtn.addEventListener('click', async () => {
+            startBtn.disabled = true;
+            statusEl.textContent = 'Scoring companies with AI... (this may take a moment)';
+            statusEl.style.color = '#94a3b8';
+
+            try {
+                const response = await fetch('/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await response.json();
+
+                if (data.status === 'paused_for_review') {
+                    showInterrupt(data.interrupts);
+                } else {
+                    statusEl.textContent = 'Graph completed (no review needed).';
+                    statusEl.style.color = '#4ade80';
+                }
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'Connection failed.';
+                statusEl.style.color = '#f87171';
+                startBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>
