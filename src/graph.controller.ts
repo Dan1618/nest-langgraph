@@ -8,7 +8,8 @@ export class AppController {
   @Get()
   @Render('index')
   root() {
-    return { message: 'Hello world!' };
+    const companies = this.graphService.getInputCompanies();
+    return { companies };
   }
 
   @Post('start')
@@ -50,6 +51,7 @@ export class AppController {
     return {
       status: 'completed',
       companies: result.companies,
+      portfolioOverview: result.portfolioOverview,
     };
   }
 }

@@ -1,6 +1,7 @@
 export interface SummaryState {
     companies: Company[];
     draft?: string;
+    portfolioOverview?: string;
 }
 
 export interface Company {

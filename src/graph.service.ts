@@ -16,6 +16,7 @@ const RiskSchema = z.object({
 const StateAnnotation = Annotation.Root({
   companies: Annotation<Company[]>(),
   draft: Annotation<string | undefined>(),
+  portfolioOverview: Annotation<string | undefined>(),
 });
 
 
@@ -58,10 +59,6 @@ export class GraphService {
         })
       );
 
-      // 3. Return the updated array to the LangGraph state
-      const outputPath = path.join(process.cwd(), 'data', 'companiesWithRisk.json');
-      fs.writeFileSync(outputPath, JSON.stringify(updatedCompanies, null, 2), 'utf8');
-
       return { companies: updatedCompanies };
     };
 
@@ -86,31 +83,52 @@ export class GraphService {
         // If not approved, the company is simply not added (i.e. removed from state).
       }
 
-      console.log('approvedCompanies', approvedCompanies);
-
       return { companies: approvedCompanies };
+    };
+
+    const generateOverview = async (state: typeof StateAnnotation.State) => {
+      if (!state.companies || state.companies.length === 0) {
+        return { portfolioOverview: 'No companies were approved — nothing to summarize.' };
+      }
+
+      const companySummaries = state.companies
+        .map(c => `${c.name} (${c.ticker}) — Risk: ${c.risk ?? 'N/A'}`)
+        .join('\n');
+
+      const response = await llm.invoke([
+        {
+          role: 'system',
+          content:
+            'You are a financial analyst. Given the list of approved portfolio companies below, ' +
+            'write a concise portfolio overview (3-5 sentences). Highlight overall risk profile, ' +
+            'sector diversity, and any notable observations.',
+        },
+        { role: 'user', content: companySummaries },
+      ]);
+
+      return { portfolioOverview: response.content as string };
     };
 
     const workflow = new StateGraph(StateAnnotation)
       .addNode("scoreCompanies", scoreCompanies)
       .addNode("humanReview", humanReview)
+      .addNode("generateOverview", generateOverview)
       .addEdge(START, "scoreCompanies")
       .addEdge("scoreCompanies", "humanReview")
-      .addEdge("humanReview", END);
+      .addEdge("humanReview", "generateOverview")
+      .addEdge("generateOverview", END);
 
     // https://docs.langchain.com/oss/javascript/langgraph/persistence
     const memory = new MemorySaver();
     this.appGraph = workflow.compile({ checkpointer: memory });
+
+
   }
 
   private readonly threadConfig = { configurable: { thread_id: "1" } };
 
   async start() {
-    console.log('working.');
-
-    // Read the input companies from the JSON file
-    const inputPath = path.join(process.cwd(), 'data', 'inputCompanies.json');
-    const inputData = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+    const inputData = this.getInputCompanies();
 
     const initialState: SummaryState = {
       companies: inputData
@@ -121,6 +139,14 @@ export class GraphService {
 
     console.log('Graph paused or completed.');
     return result;
+  }
+
+  /**
+   * Reads input companies from the JSON file.
+   */
+  getInputCompanies(): Company[] {
+    const inputPath = path.join(process.cwd(), 'data', 'inputCompanies.json');
+    return JSON.parse(fs.readFileSync(inputPath, 'utf8'));
   }
 
   /**
