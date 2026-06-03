@@ -3,18 +3,21 @@
         "id": "0",
         "name": "Apple",
         "ticker": "NASDAQ: AAPL",
-        "description": "they make iPhones"
+        "description": "they make iPhones",
+        "risk": 2
     },
     {
         "id": "1",
         "name": "AstroNova, Inc.",
         "ticker": "NASDAQ: ALOT",
-        "description": "Data visualization technologies, specialty printers, and aerospace electronics."
+        "description": "Data visualization technologies, specialty printers, and aerospace electronics.",
+        "risk": 3
     },
     {
         "id": "2",
         "name": "AudioCodes Ltd.",
         "ticker": "NASDAQ: AUDC",
-        "description": "Advanced voice networking and media processing solutions."
+        "description": "Advanced voice networking and media processing solutions.",
+        "risk": 3
     }
 ]

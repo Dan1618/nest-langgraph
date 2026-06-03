@@ -33,8 +33,9 @@ export class AppController {
   }
 
   @Post('review')
-  async review(@Body() body: { approve: boolean }) {
-    const result = await this.graphService.resume(body.approve);
+  async review(@Body() body: { approve: boolean; risk?: number }) {
+    const risk = body.risk != null ? Number(body.risk) : undefined;
+    const result = await this.graphService.resume(body.approve, risk);
     // Check if there are more interrupts (more companies to review)
     const state = await this.graphService.getState();
     const pendingInterrupts = state.tasks?.map((t: any) => t.interrupts).flat() ?? [];

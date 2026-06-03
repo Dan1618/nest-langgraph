@@ -77,10 +77,16 @@ export class GraphService {
         });
 
         if (decision?.approve) {
-          approvedCompanies.push(company);
+          // If the user provided a risk override, apply it
+          const finalCompany = (decision.risk != null)
+            ? { ...company, risk: decision.risk }
+            : company;
+          approvedCompanies.push(finalCompany);
         }
         // If not approved, the company is simply not added (i.e. removed from state).
       }
+
+      console.log('approvedCompanies', approvedCompanies);
 
       return { companies: approvedCompanies };
     };
@@ -129,9 +135,13 @@ export class GraphService {
    * Resume the graph after an interrupt with the user's decision.
    * @param approve - whether the user approves the current company
    */
-  async resume(approve: boolean) {
+  async resume(approve: boolean, risk?: number) {
+    const resumePayload: { approve: boolean; risk?: number } = { approve };
+    if (risk != null) {
+      resumePayload.risk = risk;
+    }
     const result = await this.appGraph.invoke(
-      new Command({ resume: { approve } }),
+      new Command({ resume: resumePayload }),
       this.threadConfig,
     );
     return result;
