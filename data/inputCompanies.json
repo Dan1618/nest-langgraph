@@ -3,8 +3,7 @@
         "id": "0",
         "name": "Apple",
         "ticker": "NASDAQ: AAPL",
-        "description": "they make iPhones",
-        "risk": 2
+        "description": "they make iPhones"
     },
     {
         "id": "1",
@@ -17,7 +16,6 @@
         "id": "2",
         "name": "AudioCodes Ltd.",
         "ticker": "NASDAQ: AUDC",
-        "description": "Advanced voice networking and media processing solutions.",
-        "risk": 3
+        "description": "Advanced voice networking and media processing solutions."
     }
 ]
